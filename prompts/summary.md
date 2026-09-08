@@ -17,6 +17,7 @@ Rules:
 - `body_markdown` is Markdown: paragraphs, `##` sub-headings if useful, bullet lists, fenced code for commands or output worth quoting (short). 150 to 600 words per topic.
 - Name files, commands, branches, commit ids, PR numbers and error messages exactly as they appear.
 - Do not describe this worklog tooling itself unless a session was building it.
+- Write in ASD-STE100 Simplified Technical English: one idea per sentence, at most 20 words per sentence, active voice, present tense for facts and past tense for what happened, one meaning per word and the same word for the same thing throughout, no synonyms for variety, no idioms, no nominalizations ("we deployed", not "a deployment was performed"), lists for sequences of more than three items.
 - Write the way an engineer writes in a project log: short sentences, first person plural is fine, no headings like "Overview" or "Conclusion", no bullet lists of adjectives, no praise, no "delve", no "robust", no "seamless", no "leverage", no summary sentence that repeats the paragraph. Plain and direct.
 
 Digest:
