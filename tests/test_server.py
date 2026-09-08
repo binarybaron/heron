@@ -177,6 +177,11 @@ class ServerTest(unittest.TestCase):
         status, body, headers = self.request("GET", "/style.css", headers=auth)
         self.assertEqual(status, 200)
         self.assertTrue(headers["Content-Type"].startswith("text/css"))
+        (site / "diagrams").mkdir(exist_ok=True)
+        (site / "diagrams" / "a.svg").write_text("<svg xmlns='http://www.w3.org/2000/svg'/>")
+        status, _, headers = self.request("GET", "/diagrams/a.svg", headers=auth)
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "image/svg+xml")
         status, body, _ = self.request("GET", "/sessions/S00000001.html", headers=auth)
         self.assertEqual((status, body), (200, b"<p>session</p>"))
         for path in ("/missing.html", "/../secret.txt", "/sessions/", "/sessions", "/%2e%2e/secret.txt"):
