@@ -82,7 +82,9 @@ class RenderTest(unittest.TestCase):
         sys.argv = ["heron render"]
         render.main()
         self.assertFalse((sessions / "S0badbad0.html").exists())
-        self.assertTrue((sessions / f"{self.sid}.html").exists())
+        # Without a summary nothing cites the session, so it gets no page:
+        # uncited transcripts stay private.
+        self.assertFalse((sessions / f"{self.sid}.html").exists())
         self.assertIn("No summary has been generated yet.", (common.SITE / "index.html").read_text())
 
 
