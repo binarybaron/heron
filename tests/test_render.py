@@ -59,6 +59,7 @@ class RenderTest(unittest.TestCase):
         self.assertIn("Parser fix", post_html)
         self.assertIn("1/1", post_html)
         self.assertIn("Figure 1.", post_html)
+        self.assertIn("key=", post_html)
         self.assertIn("Figure 2.", post_html)
         self.assertIn("flowchart LR", post_html)
         links = re.findall(r'href="\.\./(sessions/S[0-9a-f]{8}\.html#t-\d+)"', post_html)

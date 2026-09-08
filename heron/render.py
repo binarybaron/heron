@@ -63,7 +63,7 @@ figure.diagram { margin: 1.6rem 0; padding: 0.8rem; border: 1px solid #000; }
 figure.diagram img { display: block; max-width: 100%; height: auto; margin: 0.6rem auto; }
 figure.diagram figcaption { margin-bottom: 0.4rem; }
 .turn { margin: 1rem 0; padding-left: 0.8rem; border-left: 3px solid #ddd; }
-.turn:target { border-left-color: #000; background: #f4f4f4; }
+.turn:target, .turn.is-target { border-left-color: #000; background: #f4f4f4; }
 .turn .who { font-weight: 700; }
 .turn .n { color: #777; margin-right: 0.5em; }
 .turn.user { border-left-color: #000; }
@@ -80,6 +80,23 @@ td, th { text-align: left; padding: 0.2rem 1rem 0.2rem 0; vertical-align: top; b
 footer.site { margin-top: 3rem; padding-top: 0.8rem; border-top: 1px solid #000; color: #555; }
 @media (max-width: 40rem) { body { padding: 1.2rem 0.8rem 4rem; font-size: 14.5px; } }
 """
+
+
+# Keeps `#key=…` on every internal link, so a link copied from any page
+# still opens without the sign-in step. The server only ever sees the cookie.
+KEY_SCRIPT = """<script>
+(function () {
+  var m = /(?:^#|[#&])key=([^&]+)/.exec(location.hash);
+  if (!m) return;
+  var key = 'key=' + m[1];
+  document.querySelectorAll('a[href]').forEach(function (a) {
+    var h = a.getAttribute('href');
+    if (/^(https?:)?\/\//.test(h) || /^(mailto|javascript):/.test(h) || h.indexOf('key=') >= 0) return;
+    if (h.charAt(0) === '#') { a.setAttribute('href', h + '&' + key); return; }
+    a.setAttribute('href', h + (h.indexOf('#') >= 0 ? '&' : '#') + key);
+  });
+})();
+</script>"""
 
 
 def esc(text: Any) -> str:
@@ -308,7 +325,7 @@ def page(title: str, body: str, *, base: str, updated: str, hosts: list[str]) ->
         f'<nav><a href="{base}index.html">posts</a><a href="{base}commits.html">commit agent</a><a href="{base}sessions.html">sessions</a></nav>'
         f'<span class="muted">{esc(" · ".join(hosts))}</span></header>'
     )
-    footer = f'<footer class="site">updated {esc(updated)} UTC · written from the transcripts by heron</footer>'
+    footer = f'<footer class="site">updated {esc(updated)} UTC · written from the transcripts by heron</footer>' + KEY_SCRIPT
     return (
         "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
@@ -421,7 +438,15 @@ def render_session(record: dict[str, Any], ctx: dict[str, Any]) -> str:
     turns = parts
     script = """<script>
 (function () {
-  function openTarget() { var t = location.hash && document.querySelector(location.hash); if (t && t.tagName === 'DETAILS') { t.open = true; t.scrollIntoView(); } }
+  function openTarget() {
+    var id = location.hash.replace(/^#/, '').split('&').filter(function (p) { return p.indexOf('key=') !== 0; })[0];
+    document.querySelectorAll('.turn.is-target').forEach(function (e) { e.classList.remove('is-target'); });
+    var t = id && document.getElementById(id);
+    if (!t) return;
+    t.classList.add('is-target');
+    if (t.tagName === 'DETAILS') t.open = true;
+    t.scrollIntoView();
+  }
   document.querySelectorAll('.fold-all a').forEach(function (a) { a.addEventListener('click', function (e) { e.preventDefault(); document.querySelectorAll('details.fold').forEach(function (d) { d.open = a.dataset.fold === 'open'; }); }); });
   window.addEventListener('hashchange', openTarget); openTarget();
 })();

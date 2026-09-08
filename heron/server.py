@@ -181,10 +181,11 @@ input{{font:inherit;border:1px solid #000;padding:.3em .5em;width:22rem}}button{
   function setKey(key) {{
     var secure = location.protocol === 'https:' ? '; Secure' : '';
     document.cookie = 'heron_key=' + encodeURIComponent(key) + '; Path={cookie_path}; Max-Age=31536000; SameSite=Strict' + secure;
-    location.replace(location.pathname + location.search);
+    location.replace(location.pathname + location.search + location.hash);
   }}
   var m = /(?:^#|[#&])key=([^&]+)/.exec(location.hash);
   if (m) {{ setKey(decodeURIComponent(m[1])); return; }}
+  document.getElementById('msg').textContent = 'This page needs the key. Open a link that carries #key=…, or paste the key:';
   document.getElementById('f').addEventListener('submit', function (e) {{ e.preventDefault(); var v = document.getElementById('k').value.trim(); if (v) setKey(v); }});
 }})();
 </script></body></html>
@@ -297,7 +298,7 @@ class Handler(BaseHTTPRequestHandler):
             self.respond_json(HTTPStatus.NOT_FOUND, {"error": "no such endpoint"})
             return
         if not self.site_ok():
-            if path in {"/", "/index.html"}:
+            if path == "/" or path.endswith(".html"):
                 # The sign-in page carries no secret: it only moves a key from
                 # the fragment into a cookie and reloads.
                 self.respond(HTTPStatus.OK, sign_in_page(self.server.base_path).encode(), "text/html; charset=utf-8")
