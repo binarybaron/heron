@@ -14,6 +14,7 @@ import hashlib
 import html
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -245,19 +246,43 @@ def diagram_svg(source: str) -> Path | None:
     if target.exists():
         return target
     themed = "%%{init: {'theme': 'neutral'}}%%\n" + source
-    encoded = base64.urlsafe_b64encode(themed.encode()).decode()
-    request = urllib.request.Request(f"https://mermaid.ink/svg/{encoded}", headers={"User-Agent": "heron"})
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            body = response.read()
-            if response.status != 200 or b"<svg" not in body[:2000]:
-                return None
-    except (urllib.error.URLError, TimeoutError, OSError) as error:
-        log(f"diagram not rendered: {error}")
+    body = fetch_svg(themed)
+    if body is None:
         return None
     DIAGRAMS.mkdir(parents=True, exist_ok=True)
     target.write_bytes(body)
     return target
+
+
+def fetch_svg(source: str) -> bytes | None:
+    """mermaid.ink first, kroki.io second, three tries each with a pause:
+    a burst of thirty diagrams hits rate limits, and one lost request should
+    not turn a picture into a code block."""
+    encoded = base64.urlsafe_b64encode(source.encode()).decode()
+    attempts = [
+        urllib.request.Request(f"https://mermaid.ink/svg/{encoded}", headers={"User-Agent": "heron"}),
+        urllib.request.Request(
+            "https://kroki.io/mermaid/svg",
+            data=source.encode(),
+            headers={"User-Agent": "heron", "Content-Type": "text/plain"},
+            method="POST",
+        ),
+    ]
+    for request in attempts:
+        for delay in (0, 2, 6):
+            time.sleep(delay)
+            try:
+                with urllib.request.urlopen(request, timeout=60) as response:
+                    body = response.read()
+                if b"<svg" in body[:4000]:
+                    return body
+            except urllib.error.HTTPError as error:
+                if error.code == 400:
+                    break  # the source is wrong; the other renderer will say so too
+                log(f"diagram renderer {request.full_url}: HTTP {error.code}")
+            except (urllib.error.URLError, TimeoutError, OSError) as error:
+                log(f"diagram renderer {request.full_url}: {error}")
+    return None
 
 
 def diagrams_html(diagrams: list[dict[str, Any]], turns: dict, base: str) -> str:
