@@ -41,16 +41,20 @@ class RenderTest(unittest.TestCase):
         render.main()
 
         index_html = (common.SITE / "index.html").read_text()
-        self.assertIn('data-tab="parser-fix"', index_html)
-        self.assertIn('data-tab="other"', index_html)
-        self.assertIn('id="topic-parser-fix"', index_html)
-        self.assertIn('data-tab="sessions"', index_html)
-        self.assertIn("<th>host</th>", index_html)
-        self.assertIn("<td>laptop</td>", index_html)
-        self.assertIn("· laptop ·", index_html)
+        self.assertIn('href="posts/parser-fix.html"', index_html)
+        self.assertIn('href="posts/other.html"', index_html)
+        self.assertIn('href="sessions.html"', index_html)
+        self.assertIn("laptop", index_html)
         self.assertIn("background: #fff; color: #000", (common.SITE / "style.css").read_text())
 
-        links = re.findall(r'href="(sessions/S[0-9a-f]{8}\.html#t-\d+)"', index_html)
+        sessions_html = (common.SITE / "sessions.html").read_text()
+        self.assertIn("<th>host</th>", sessions_html)
+        self.assertIn("<td>laptop</td>", sessions_html)
+
+        post_html = (common.SITE / "posts" / "parser-fix.html").read_text()
+        self.assertIn("Parser fix", post_html)
+        self.assertIn("1/1", post_html)
+        links = re.findall(r'href="\.\./(sessions/S[0-9a-f]{8}\.html#t-\d+)"', post_html)
         self.assertIn(f"sessions/{self.sid}.html#t-3", links)
         self.assertIn(f"sessions/{self.sid}.html#t-4", links)
         page = common.SITE / "sessions" / f"{self.sid}.html"

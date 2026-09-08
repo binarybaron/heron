@@ -152,11 +152,21 @@ class ServerTest(unittest.TestCase):
         (site / "sessions" / "S00000001.html").write_text("<p>session</p>")
         (self.state / "secret.txt").write_text("not served")
 
-        status, _, headers = self.request("GET", "/")
+        # The front page without credentials is the sign-in shim, which
+        # carries no content; everything else stays a 401.
+        status, body, _ = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        self.assertIn(b"heron_key", body)
+        self.assertIn(b'id="k"', body)
+        status, _, headers = self.request("GET", "/style.css")
         self.assertEqual(status, 401)
         self.assertIn("Basic", headers.get("WWW-Authenticate", ""))
         wrong = base64.b64encode(b"reader:bad").decode()
-        status, _, _ = self.request("GET", "/", headers={"Authorization": f"Basic {wrong}"})
+        status, _, _ = self.request("GET", "/style.css", headers={"Authorization": f"Basic {wrong}"})
+        self.assertEqual(status, 401)
+        status, body, _ = self.request("GET", "/", headers={"Cookie": f"heron_key={support.CONFIG['site_password']}"})
+        self.assertEqual((status, body), (200, b"<h1>heron</h1>"))
+        status, _, _ = self.request("GET", "/style.css", headers={"Cookie": "heron_key=wrong"})
         self.assertEqual(status, 401)
 
         good = base64.b64encode(f"{support.CONFIG['site_user']}:{support.CONFIG['site_password']}".encode()).decode()

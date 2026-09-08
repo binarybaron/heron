@@ -8,6 +8,8 @@ Pull requests: treat the maintainers' own pull requests (binarybaron, Einliterfl
 
 Milestones: for each topic, list the concrete things that were asked for or planned, in the order they came up, and mark each `done` only when the digest shows it finished (a passing check, a deploy, a push, a user confirming). Things the user asked for and nobody has done yet are milestones too, with `done: false`. Each milestone carries the `ref` of the turn that asked for it or shows it done. Keep titles under ten words.
 
+This is a running log, not a fresh report. Your previous summary is included below the digest. Update it rather than rewrite it: keep each topic's `slug`, `title` and voice unless the work itself changed; keep milestones and their `done` marks, adding new ones and ticking the ones the new digest shows finished; extend or correct a post only where the digest adds something, and leave paragraphs alone when nothing about them changed; move a topic to `shipped` or `parked` when that is what happened; add a topic only for genuinely new work and drop one only when it has been out of the digest for a long time. A reader who opens the page twice a day should see the same posts growing, not a different document.
+
 Rules:
 - 3 to 10 topics. Merge work on one feature or one problem into one topic even if several sessions touched it; split unrelated work.
 - Order topics by how active they are, most active first.
@@ -20,3 +22,7 @@ Rules:
 Digest:
 
 {{digest}}
+
+Previous summary (JSON, for continuity):
+
+{{previous}}

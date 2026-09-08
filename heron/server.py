@@ -34,6 +34,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from http.cookies import CookieError, SimpleCookie
 from urllib.parse import unquote, urlsplit
 
 from heron.common import STATE, fail, load_config, log
@@ -166,6 +167,28 @@ class HeronServer(ThreadingHTTPServer):
         return target
 
 
+def sign_in_page(base_path: str) -> str:
+    cookie_path = base_path or "/"
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><title>heron</title>
+<style>html{{background:#fff;color:#000}}body{{font:15px/1.6 ui-monospace,Menlo,Consolas,monospace;max-width:40rem;margin:4rem auto;padding:0 1rem}}
+input{{font:inherit;border:1px solid #000;padding:.3em .5em;width:22rem}}button{{font:inherit;border:1px solid #000;background:#fff;padding:.3em .8em}}</style></head>
+<body><h1>heron</h1><p id="msg">This page needs the key. Open the link that ends in <code>#key=…</code>, or paste the key:</p>
+<form id="f"><input id="k" type="password" autocomplete="off" placeholder="key"> <button>open</button></form>
+<script>
+(function () {{
+  function setKey(key) {{
+    var secure = location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = 'heron_key=' + encodeURIComponent(key) + '; Path={cookie_path}; Max-Age=31536000; SameSite=Strict' + secure;
+    location.replace(location.pathname + location.search);
+  }}
+  var m = /(?:^#|[#&])key=([^&]+)/.exec(location.hash);
+  if (m) {{ setKey(decodeURIComponent(m[1])); return; }}
+  document.getElementById('f').addEventListener('submit', function (e) {{ e.preventDefault(); var v = document.getElementById('k').value.trim(); if (v) setKey(v); }});
+}})();
+</script></body></html>
+"""
+
+
 class Handler(BaseHTTPRequestHandler):
     server: HeronServer
     protocol_version = "HTTP/1.1"
@@ -199,6 +222,21 @@ class Handler(BaseHTTPRequestHandler):
         header = self.headers.get("Authorization", "")
         scheme, _, token = header.partition(" ")
         return scheme.lower() == "bearer" and hmac.compare_digest(token.strip(), self.server.ingest_token)
+
+    def cookie_ok(self) -> bool:
+        """The site password as a cookie, set by the sign-in page from the
+        URL fragment: `/#key=<site_password>` never reaches the server, so a
+        link with the key in it can be pasted around without logging it."""
+        cookie = SimpleCookie()
+        try:
+            cookie.load(self.headers.get("Cookie", ""))
+        except CookieError:
+            return False
+        morsel = cookie.get("heron_key")
+        return morsel is not None and hmac.compare_digest(morsel.value, self.server.site_password)
+
+    def site_ok(self) -> bool:
+        return self.basic_ok() or self.cookie_ok()
 
     def basic_ok(self) -> bool:
         header = self.headers.get("Authorization", "")
@@ -256,7 +294,12 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self.respond_json(HTTPStatus.NOT_FOUND, {"error": "no such endpoint"})
             return
-        if not self.basic_ok():
+        if not self.site_ok():
+            if path in {"/", "/index.html"}:
+                # The sign-in page carries no secret: it only moves a key from
+                # the fragment into a cookie and reloads.
+                self.respond(HTTPStatus.OK, sign_in_page(self.server.base_path).encode(), "text/html; charset=utf-8")
+                return
             self.respond(
                 HTTPStatus.UNAUTHORIZED,
                 b"heron: sign in\n",

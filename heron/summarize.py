@@ -9,6 +9,7 @@ schemas/summary.json; a failed call keeps the previous summary in place.
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Any
 
@@ -29,6 +30,7 @@ from heron.common import (
 
 DIGEST_CHARS = int(os.environ.get("HERON_DIGEST_CHARS", "260000"))
 SESSION_CHARS = int(os.environ.get("HERON_SESSION_CHARS", "45000"))
+PREVIOUS_CHARS = int(os.environ.get("HERON_PREVIOUS_CHARS", "120000"))
 LIMITS = {"prompt": 1500, "text": 1200, "tool_use": 320, "tool_result": 320, "terminal": 600}
 PR_LIMITS = {"prompt": 2500, "text": 1500}
 
@@ -112,7 +114,21 @@ def main() -> None:
         fail("nothing collected; run collect.py first")
     digest = build_digest(index["sessions"])
     log(f"digest of {len(digest)} characters from {len(index['sessions'])} interactions")
-    prompt = load_prompt("summary.md", window_hours=str(int(WINDOW_HOURS)), digest=digest)
+    previous = read_json(SUMMARY) or {}
+    previous_text = "(none yet)"
+    if previous.get("topics"):
+        kept = {
+            "headline": previous.get("headline"),
+            "generated_at": previous.get("generated_at"),
+            "topics": [
+                {k: t.get(k) for k in ("slug", "title", "status", "one_liner", "milestones", "body_markdown")}
+                for t in previous["topics"]
+            ],
+        }
+        previous_text = json.dumps(kept, indent=1, ensure_ascii=False)
+        if len(previous_text) > PREVIOUS_CHARS:
+            previous_text = previous_text[:PREVIOUS_CHARS] + "\n… [previous summary cut] …"
+    prompt = load_prompt("summary.md", window_hours=str(int(WINDOW_HOURS)), digest=digest, previous=previous_text)
     try:
         summary = claude_structured(prompt, load_schema("summary.json"))
     except RuntimeError as error:
