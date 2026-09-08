@@ -5,6 +5,9 @@ Description=heron site pipeline
 After=network.target
 
 [Service]
+Environment=HOME=/root
+Environment=PATH=/root/.local/bin:/root/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=IS_SANDBOX=1
 Type=oneshot
 WorkingDirectory=@REPO@
 ExecStart=@REPO@/bin/heron site

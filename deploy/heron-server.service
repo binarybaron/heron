@@ -5,6 +5,9 @@ Description=heron server (uploads and the site)
 After=network.target
 
 [Service]
+Environment=HOME=/root
+Environment=PATH=/root/.local/bin:/root/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=IS_SANDBOX=1
 Type=simple
 WorkingDirectory=@REPO@
 ExecStart=@REPO@/bin/heron serve
