@@ -9,8 +9,13 @@ where the whole conversation or terminal is shown.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import html
+import os
 import re
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +58,9 @@ a.ref { text-decoration: none; border-bottom: 1px dotted #000; color: #333; font
 a.ref:hover { background: #eee; }
 a.ref::before { content: "↗ "; }
 a.commit { font-family: inherit; text-decoration: none; border-bottom: 1px solid #000; }
+figure.diagram { margin: 1.6rem 0; padding: 0.8rem; border: 1px solid #000; }
+figure.diagram img { display: block; max-width: 100%; height: auto; margin: 0.6rem auto; }
+figure.diagram figcaption { margin-bottom: 0.4rem; }
 .turn { margin: 1rem 0; padding-left: 0.8rem; border-left: 3px solid #ddd; }
 .turn:target { border-left-color: #000; background: #f4f4f4; }
 .turn .who { font-weight: 700; }
@@ -221,6 +229,50 @@ def milestone_list(milestones: list[dict[str, Any]], turns: dict, base: str) -> 
     return '<ul class="milestones">' + "".join(items) + "</ul>"
 
 
+DIAGRAMS = SITE / "diagrams"
+
+
+def diagram_svg(source: str) -> Path | None:
+    """Render Mermaid to an SVG file through mermaid.ink, cached by content.
+
+    HERON_DIAGRAM_RENDERER=none skips the network (tests, offline boxes); the
+    source is then shown as a code block instead of a picture.
+    """
+    if os.environ.get("HERON_DIAGRAM_RENDERER", "mermaid.ink") == "none":
+        return None
+    digest = hashlib.sha1(source.encode()).hexdigest()[:16]
+    target = DIAGRAMS / f"{digest}.svg"
+    if target.exists():
+        return target
+    themed = "%%{init: {'theme': 'neutral'}}%%\n" + source
+    encoded = base64.urlsafe_b64encode(themed.encode()).decode()
+    request = urllib.request.Request(f"https://mermaid.ink/svg/{encoded}", headers={"User-Agent": "heron"})
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            body = response.read()
+            if response.status != 200 or b"<svg" not in body[:2000]:
+                return None
+    except (urllib.error.URLError, TimeoutError, OSError) as error:
+        log(f"diagram not rendered: {error}")
+        return None
+    DIAGRAMS.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(body)
+    return target
+
+
+def diagrams_html(diagrams: list[dict[str, Any]], turns: dict, base: str) -> str:
+    out = []
+    for i, d in enumerate(diagrams, start=1):
+        svg = diagram_svg(str(d.get("mermaid", "")))
+        out.append(f'<figure class="diagram"><figcaption><b>Figure {i}.</b> {esc(d.get("title", ""))}</figcaption>')
+        if svg is None:
+            out.append(f'<pre class="mermaid-src"><code>{esc(d.get("mermaid", ""))}</code></pre>')
+        else:
+            out.append(f'<a href="{base}diagrams/{svg.name}"><img src="{base}diagrams/{svg.name}" alt="{esc(d.get("title", ""))}"></a>')
+        out.append(f'<p class="muted">{inline(str(d.get("caption", "")), turns, base)}</p></figure>')
+    return "".join(out)
+
+
 def status_badge(status: str) -> str:
     return f'<span class="status {esc(status)}">{esc(status)}</span>'
 
@@ -268,6 +320,7 @@ def render_post(t: dict[str, Any], ctx: dict[str, Any], turns: dict) -> str:
         + milestone_list(milestones, turns, base)
         + "<hr>"
         + markdown(t.get("body_markdown", ""), turns, base)
+        + (("<hr><h2>Diagrams</h2>" + diagrams_html(t["diagrams"], turns, base)) if t.get("diagrams") else "")
         + "</article>"
     )
     return page(f'{t["title"]} · heron', body, base=base, **ctx)

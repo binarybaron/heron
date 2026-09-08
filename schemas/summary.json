@@ -14,10 +14,25 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "slug": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,48}$"},
-          "title": {"type": "string"},
-          "status": {"type": "string", "enum": ["active", "blocked", "shipped", "parked"]},
-          "one_liner": {"type": "string"},
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{1,48}$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "blocked",
+              "shipped",
+              "parked"
+            ]
+          },
+          "one_liner": {
+            "type": "string"
+          },
           "body_markdown": {
             "type": "string",
             "description": "The post. Cite interactions inline as [[S1a2b3c4#12]]."
@@ -30,20 +45,66 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "title": {"type": "string"},
-                "done": {"type": "boolean"},
+                "title": {
+                  "type": "string"
+                },
+                "done": {
+                  "type": "boolean"
+                },
                 "ref": {
                   "type": "string",
                   "description": "The citation that asked for it or shows it done, like S1a2b3c4#12, or empty."
                 }
               },
-              "required": ["title", "done", "ref"]
+              "required": [
+                "title",
+                "done",
+                "ref"
+              ]
+            }
+          },
+          "diagrams": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "mermaid": {
+                  "type": "string",
+                  "description": "Mermaid source: flowchart, sequenceDiagram, stateDiagram-v2 or gitGraph. No init directives, no HTML."
+                },
+                "caption": {
+                  "type": "string",
+                  "description": "One sentence on what the diagram shows and where the evidence is, with [[S\u2026#n]] citations."
+                }
+              },
+              "required": [
+                "title",
+                "mermaid",
+                "caption"
+              ]
             }
           }
         },
-        "required": ["slug", "title", "status", "one_liner", "body_markdown", "milestones"]
+        "required": [
+          "slug",
+          "title",
+          "status",
+          "one_liner",
+          "body_markdown",
+          "milestones",
+          "diagrams"
+        ]
       }
     }
   },
-  "required": ["headline", "topics"]
+  "required": [
+    "headline",
+    "topics"
+  ]
 }

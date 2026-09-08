@@ -10,6 +10,8 @@ Milestones: for each topic, list the concrete things that were asked for or plan
 
 This is a running log, not a fresh report. Your previous summary is included below the digest. Update it rather than rewrite it: keep each topic's `slug`, `title` and voice unless the work itself changed; keep milestones and their `done` marks, adding new ones and ticking the ones the new digest shows finished; extend or correct a post only where the digest adds something, and leave paragraphs alone when nothing about them changed; move a topic to `shipped` or `parked` when that is what happened; add a topic only for genuinely new work and drop one only when it has been out of the digest for a long time. A reader who opens the page twice a day should see the same posts growing, not a different document.
 
+Diagrams: give each topic two to four technical diagrams in Mermaid (`flowchart`, `sequenceDiagram`, `stateDiagram-v2` or `gitGraph`), each with a title and a one-sentence caption that cites the turns it is drawn from. Draw the mechanism the work is about, not the work process: the components a change touches and how data or control moves between them, a sequence of calls a bug went through, the states a swap or a job passes through, the branches and commits of a release. Use the real names from the digest for nodes and messages. Keep each diagram under 25 nodes. Plain Mermaid only: no `%%{init}` directives, no HTML in labels, no styling. When a diagram already exists in the previous summary and the mechanism has not changed, keep it as it is.
+
 Rules:
 - 3 to 10 topics. Merge work on one feature or one problem into one topic even if several sessions touched it; split unrelated work.
 - Order topics by how active they are, most active first.

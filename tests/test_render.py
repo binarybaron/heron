@@ -8,6 +8,8 @@ import sys
 import unittest
 from unittest import mock
 
+import os
+os.environ["HERON_DIAGRAM_RENDERER"] = "none"
 import support
 from heron import collect, common, render
 
@@ -32,7 +34,9 @@ class RenderTest(unittest.TestCase):
             "topics": [
                 {"slug": "parser-fix", "title": "Parser fix", "status": "shipped", "one_liner": "The test passes.",
                  "milestones": [{"title": "Make the parser test pass", "done": True, "ref": f"{self.sid}#4"}],
-                 "body_markdown": f"The agent ran the tests [[{self.sid}#3]] and they passed [[{self.sid}#4]].\n\n- `unittest` output quoted\n"},
+                 "body_markdown": f"The agent ran the tests [[{self.sid}#3]] and they passed [[{self.sid}#4]].\n\n- `unittest` output quoted\n",
+                 "diagrams": [{"title": "Parser flow", "mermaid": "flowchart LR\n  A[input] --> B[parser]", "caption": f"From [[{self.sid}#3]]."},
+                              {"title": "Test run", "mermaid": "sequenceDiagram\n  agent->>tests: run", "caption": "The run."}]},
                 {"slug": "other", "title": "Other work", "status": "parked", "one_liner": "", "milestones": [],
                  "body_markdown": "Fixed in eigenwallet/core-wasm@5edabdde4 and 950b9696a, see eigenwallet/core#1198."},
             ],
@@ -54,6 +58,9 @@ class RenderTest(unittest.TestCase):
         post_html = (common.SITE / "posts" / "parser-fix.html").read_text()
         self.assertIn("Parser fix", post_html)
         self.assertIn("1/1", post_html)
+        self.assertIn("Figure 1.", post_html)
+        self.assertIn("Figure 2.", post_html)
+        self.assertIn("flowchart LR", post_html)
         links = re.findall(r'href="\.\./(sessions/S[0-9a-f]{8}\.html#t-\d+)"', post_html)
         self.assertIn(f"sessions/{self.sid}.html#t-3", links)
         self.assertIn(f"sessions/{self.sid}.html#t-4", links)
