@@ -23,41 +23,59 @@ Two programs, see [DESIGN.md](DESIGN.md) for the contract between them:
 
 ## How the pieces fit
 
-    laptop (macOS / Linux)                         server (any Linux box)
-    ┌──────────────────────────────┐               ┌──────────────────────────────┐
-    │ ~/.claude/projects/**.jsonl  │               │ ~/.claude/projects/**.jsonl  │
-    │ ~/.codex/sessions/**.jsonl   │  transcripts  │ ~/.codex/sessions/**.jsonl   │
-    │ ~/.local/share/heron/        │◄── written ──│ ~/.local/share/heron/        │
-    │   terminals/*.log            │   by agents   │   terminals/*.log            │
-    │        ▲ shell hook (script) │   and shells  │        ▲ shell hook (script) │
-    │        │                     │               │        │                     │
-    │  heron-agent run  (Rust)     │               │  heron-agent run  (Rust)     │
-    │  tails files, ships new      │               │  same binary, same config    │
-    │  bytes every 30 s            │               │                              │
-    └──────────────┬───────────────┘               └──────────────┬───────────────┘
-                   │  POST /api/v1/upload  (bearer token, base64 chunks, offsets)
-                   ▼                                              ▼
-    ┌─────────────────────────────────────────────────────────────────────────────┐
-    │ heron server  (VM, Python)                                                  │
-    │                                                                             │
-    │   heron serve ── raw/<host>/{claude,codex,terminals}/…   (append at offset) │
-    │                            │                                                │
-    │   every 2 h: heron site    ▼                                                │
-    │     collect ──► state/interactions/S….json   one record per session/shell   │
-    │     prs     ──► state/interactions/P….json   maintainers' PRs via gh        │
-    │     summarize ─► digest ──► claude -p --json-schema ──► state/summary.json  │
-    │                            (topics, milestones, [[S…#n]] citations)         │
-    │     render  ──► site/index.html + site/sessions/<id>.html                   │
-    │                                                                             │
-    │   hourly: heron commit ── reads interactions for "tests passed" evidence,   │
-    │            groups eligible files with claude, re-runs checks, commits, push │
-    │                                                                             │
-    │   heron serve ── GET /  (HTTP Basic auth) ──► the page                      │
-    └─────────────────────────────────────────────────────────────────────────────┘
-                   ▲
-                   │ TLS: reverse proxy or a Tailscale funnel path
-                   │
-              your browser
+```mermaid
+flowchart LR
+    subgraph laptop["laptop (macOS or Linux)"]
+        L1["~/.claude/projects/**.jsonl"]
+        L2["~/.codex/sessions/**.jsonl"]
+        L3["~/.local/share/heron/terminals/*.log"]
+        LH["shell hook (script)"] --> L3
+        LA["heron-agent run (Rust)"]
+        L1 --> LA
+        L2 --> LA
+        L3 --> LA
+    end
+
+    subgraph box["dev server (Linux)"]
+        B1["~/.claude/projects/**.jsonl"]
+        B2["~/.codex/sessions/**.jsonl"]
+        B3["~/.local/share/heron/terminals/*.log"]
+        BH["shell hook (script)"] --> B3
+        BA["heron-agent run (Rust)"]
+        B1 --> BA
+        B2 --> BA
+        B3 --> BA
+    end
+
+    subgraph server["heron server (VM, Python)"]
+        S["heron serve<br/>POST /api/v1/upload"]
+        RAW[("raw/&lt;host&gt;/{claude,codex,terminals}")]
+        C["collect"]
+        P["prs (gh)"]
+        I[("state/interactions/*.json")]
+        SUM["summarize"]
+        CL["claude -p --json-schema"]
+        J[("state/summary.json")]
+        R["render"]
+        SITE[("site/*.html")]
+        CA["commit agent (hourly)"]
+        S --> RAW --> C --> I
+        GH["GitHub pull requests<br/>by the maintainers"] --> P --> I
+        I --> SUM --> CL --> J --> R --> SITE
+        I --> CA
+        J -. previous summary .-> SUM
+        SITE --> S2["heron serve<br/>GET / (key cookie or Basic auth)"]
+    end
+
+    LA -- "bearer token, base64 chunks, offsets" --> S
+    BA -- "same protocol" --> S
+    CA -- "commit + push verified work" --> REPO["git remote"]
+    S2 --> BR["your browser"]
+```
+
+Every two hours `heron site` runs the collect, prs, summarize and render
+steps; the summarizer receives its previous output so the posts change
+incrementally. GitHub renders this Mermaid diagram in place.
 
 ## Server
 
