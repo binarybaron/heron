@@ -381,7 +381,7 @@ def render_sessions(index: dict[str, Any], ctx: dict[str, Any]) -> str:
     )
     body = (
         "<h1>Sessions</h1>"
-        f'<p class="lede">Every interaction in the last {int(index.get("window_hours", 0) or 0)} hours, newest first.</p>'
+        f'<p class="lede">The interactions the posts cite, newest first.</p>'
         f"<table><tr><th>last activity</th><th>host</th><th>source</th><th>id</th><th>first line</th><th>turns</th></tr>{rows}</table>"
     )
     return page("sessions · heron", body, base="", **ctx)
@@ -448,6 +448,11 @@ def main() -> None:
         key=lambda r: str(r.get("started", "")),
         reverse=True,
     )
+    # Only interactions a post or a commit run cites get a page and a row
+    # in the list; the rest stay on disk and out of the site.
+    cited = cited_ids(summary, runs)
+    records = [r for r in records if r["id"] in cited]
+    index = dict(index, sessions=[e for e in index.get("sessions", []) if e["id"] in cited])
     hosts = sorted({str(e.get("host")) for e in index.get("sessions", []) if e.get("host")}) or list(index.get("hosts", []))
     ctx = {"updated": when(summary.get("generated_at") or index.get("generated_at")), "hosts": hosts}
 
@@ -478,6 +483,25 @@ def main() -> None:
         if stale.name not in keep:
             stale.unlink()
     log(f"rendered {len(summary.get('topics', []))} posts and {len(records)} interaction pages into {SITE}")
+
+
+def cited_ids(summary: dict[str, Any], runs: list[dict[str, Any]]) -> set[str]:
+    ids: set[str] = set()
+    for t in summary.get("topics", []):
+        texts = [t.get("body_markdown", "")] + [str(d.get("caption", "")) for d in t.get("diagrams", [])]
+        for text in texts:
+            ids.update(m[1] for m in REF_RE.finditer(text))
+        for m in t.get("milestones", []):
+            match = BARE_REF_RE.match(str(m.get("ref", "")).strip())
+            if match:
+                ids.add(match[1])
+    for run in runs:
+        for commit in run.get("commits", []):
+            for ref in commit.get("evidence", []):
+                match = BARE_REF_RE.match(ref)
+                if match:
+                    ids.add(match[1])
+    return ids
 
 
 def write(path: Path, text: str) -> None:
