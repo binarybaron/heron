@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from heron.common import COMMIT_RUNS, INDEX, INTERACTIONS, SITE, SUMMARY, log, read_json
+from heron.common import COMMIT_RUNS, INDEX, INTERACTIONS, SITE, SUMMARY, log, read_json, redact
 
 REF_RE = re.compile(r"\[\[([SP][0-9a-f]{8})#(\d+)\]\]")
 BARE_REF_RE = re.compile(r"^([SP][0-9a-f]{8})#(\d+)$")
@@ -58,6 +58,13 @@ a.ref::before { content: "↗ "; }
 .turn .n { color: #777; margin-right: 0.5em; }
 .turn.user { border-left-color: #000; }
 .turn pre { margin: 0.3rem 0; background: none; border: 0; padding: 0; }
+details.fold summary { cursor: pointer; list-style: none; }
+details.fold summary::-webkit-details-marker { display: none; }
+details.fold summary::before { content: "▸ "; color: #777; }
+details.fold[open] summary::before { content: "▾ "; }
+details.fold summary .muted { font-size: 0.9em; }
+.fold-all { margin: 0 0 1rem; }
+.fold-all a { margin-right: 1rem; }
 table { border-collapse: collapse; width: 100%; }
 td, th { text-align: left; padding: 0.2rem 1rem 0.2rem 0; vertical-align: top; border-bottom: 1px solid #eee; }
 footer.site { margin-top: 3rem; padding-top: 0.8rem; border-top: 1px solid #000; color: #555; }
@@ -77,7 +84,7 @@ def turn_snippet(turns: dict[tuple[str, int], dict[str, Any]], sid: str, n: int)
     turn = turns.get((sid, n))
     if turn is None:
         return f"{sid}#{n}"
-    text = " ".join(turn["text"].split())
+    text = " ".join(redact(turn["text"]).split())
     return text[:100] + ("…" if len(text) > 100 else "")
 
 
@@ -285,19 +292,37 @@ def render_session(record: dict[str, Any], ctx: dict[str, Any]) -> str:
         + (f' · cwd {esc(meta["cwd"])}' if meta.get("cwd") else "")
         + f'<br>{esc(record["path"])}'
         + (f' — <a href="{esc(meta["url"])}">open on GitHub</a>' if meta.get("url") else "")
-        + "</p><hr>"
+        + "</p>"
+        + '<p class="fold-all"><a href="#" data-fold="open">expand tool calls</a><a href="#" data-fold="close">collapse tool calls</a></p><hr>'
     )
-    turns = []
+    # Tool calls and their results are folded: the conversation reads as
+    # prompts and answers, and a citation into a folded turn opens it.
+    parts: list[str] = []
     for turn in record["turns"]:
         who = {"user": "user", "assistant": "agent", "tool": "result", "terminal": "terminal", "pr": "pull request"}.get(turn["role"], turn["role"])
         if turn["kind"] == "tool_use":
             who = f"agent → {turn.get('tool', 'tool')}"
-        turns.append(
-            f'<div class="turn {esc(turn["role"])}" id="t-{turn["n"]}">'
-            f'<span class="n"><a href="#t-{turn["n"]}">#{turn["n"]}</a></span><span class="who">{esc(who)}</span> <span class="muted">{esc((turn.get("time") or "")[11:16])}</span>'
-            f'<pre>{esc(turn["text"])}</pre></div>'
-        )
-    return page(f"{record['id']} · heron", head + "\n".join(turns), base="../", **ctx)
+        text = redact(turn["text"])
+        stamp = esc((turn.get("time") or "")[11:16])
+        head_line = f'<span class="n"><a href="#t-{turn["n"]}">#{turn["n"]}</a></span><span class="who">{esc(who)}</span> <span class="muted">{stamp}</span>'
+        if turn["kind"] in {"tool_use", "tool_result"}:
+            first = " ".join(text.split())[:120]
+            parts.append(
+                f'<details class="turn fold {esc(turn["role"])}" id="t-{turn["n"]}">'
+                f'<summary>{head_line} <span class="muted">{esc(first)}</span></summary>'
+                f"<pre>{esc(text)}</pre></details>"
+            )
+            continue
+        parts.append(f'<div class="turn {esc(turn["role"])}" id="t-{turn["n"]}">{head_line}<pre>{esc(text)}</pre></div>')
+    turns = parts
+    script = """<script>
+(function () {
+  function openTarget() { var t = location.hash && document.querySelector(location.hash); if (t && t.tagName === 'DETAILS') { t.open = true; t.scrollIntoView(); } }
+  document.querySelectorAll('.fold-all a').forEach(function (a) { a.addEventListener('click', function (e) { e.preventDefault(); document.querySelectorAll('details.fold').forEach(function (d) { d.open = a.dataset.fold === 'open'; }); }); });
+  window.addEventListener('hashchange', openTarget); openTarget();
+})();
+</script>"""
+    return page(f"{record['id']} · heron", head + "\n".join(turns) + script, base="../", **ctx)
 
 
 def main() -> None:

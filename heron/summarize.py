@@ -25,6 +25,7 @@ from heron.common import (
     log,
     now,
     read_json,
+    redact,
     write_json,
 )
 
@@ -48,7 +49,7 @@ def render_turn(sid: str, turn: dict[str, Any]) -> str:
     if turn["kind"] == "tool_use":
         who = "agent-runs"
     limit = PR_LIMITS.get(turn["kind"], 1200) if turn["role"] == "pr" else LIMITS[turn["kind"]]
-    return f"[{sid}#{turn['n']} {who} {when}] {short(turn['text'], limit)}"
+    return f"[{sid}#{turn['n']} {who} {when}] {short(redact(turn['text']), limit)}"
 
 
 def session_digest(record: dict[str, Any]) -> str:

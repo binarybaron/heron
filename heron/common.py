@@ -85,6 +85,36 @@ def strip_ansi(text: str) -> str:
     return "\n".join(lines)
 
 
+SECRET_RES = [
+    # Well-known token shapes.
+    re.compile(r"\b(sk|rk)-(?:ant-|proj-|live-|test-)?[A-Za-z0-9_-]{20,}"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{30,}"),
+    re.compile(r"\bgithub_pat_[A-Za-z0-9_]{40,}"),
+    re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{20,}"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    re.compile(r"\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
+    # Anything presented as a bearer, or as the value of a key-like name.
+    re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]{16,}"),
+    re.compile(r"(?i)((?:api[_-]?key|token|secret|password|passwd|pwd|authorization|x-access-token)\s*[=:]\s*['\"]?)[A-Za-z0-9._~+/=-]{12,}"),
+    # Basic-auth userinfo and tokens embedded in URLs.
+    re.compile(r"(://[^/\s:@]+:)[^@\s/]{6,}(@)"),
+]
+
+
+def redact(text: str) -> str:
+    """Blank out what looks like a credential before anything is shown or
+    summarized. Best effort: the shapes above, not a proof. A transcript can
+    still hold a secret in a shape this does not know."""
+    for pattern in SECRET_RES:
+        if pattern.groups == 0:
+            text = pattern.sub("[redacted]", text)
+        elif pattern.groups == 2:
+            text = pattern.sub(lambda m: m.group(1) + "[redacted]" + m.group(2), text)
+        else:
+            text = pattern.sub(lambda m: m.group(1) + "[redacted]", text)
+    return text
+
+
 def read_json(path: Path, default: Any = None) -> Any:
     try:
         return json.loads(path.read_text())
