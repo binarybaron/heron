@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from heron.common import COMMIT_RUNS, INDEX, INTERACTIONS, SITE, SUMMARY, log, read_json, redact
+from heron.common import COMMIT_RUNS, CONFIG, INDEX, INTERACTIONS, SITE, SUMMARY, log, read_json, redact
 
 REF_RE = re.compile(r"\[\[([SP][0-9a-f]{8})#(\d+)\]\]")
 BARE_REF_RE = re.compile(r"^([SP][0-9a-f]{8})#(\d+)$")
@@ -52,6 +52,7 @@ pre code { background: none; padding: 0; }
 a.ref { text-decoration: none; border-bottom: 1px dotted #000; color: #333; font-size: 0.88em; }
 a.ref:hover { background: #eee; }
 a.ref::before { content: "↗ "; }
+a.commit { font-family: inherit; text-decoration: none; border-bottom: 1px solid #000; }
 .turn { margin: 1rem 0; padding-left: 0.8rem; border-left: 3px solid #ddd; }
 .turn:target { border-left-color: #000; background: #f4f4f4; }
 .turn .who { font-weight: 700; }
@@ -99,7 +100,7 @@ def inline(text: str, turns: dict, base: str) -> str:
     pos = 0
     for match in re.finditer(r"`([^`]+)`", text):
         out.append(inline_plain(text[pos : match.start()], turns, base))
-        out.append(f"<code>{esc(match[1])}</code>")
+        out.append(f"<code>{link_github(esc(match[1]))}</code>")
         pos = match.end()
     out.append(inline_plain(text[pos:], turns, base))
     return "".join(out)
@@ -116,11 +117,36 @@ def inline_plain(text: str, turns: dict, base: str) -> str:
     return "".join(parts)
 
 
+GITHUB_REPO_RE = r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+"
+COMMIT_REF_RE = re.compile(rf"(?<![\w/@])(?:({GITHUB_REPO_RE})@)?([0-9a-f]{{7,40}})(?![\w/])")
+PR_REF_RE = re.compile(rf"(?<![\w/])({GITHUB_REPO_RE})#(\d+)(?!\w)")
+DEFAULT_REPO: str | None = None
+
+
+def link_github(escaped: str) -> str:
+    """Turn `owner/repo@sha`, bare shas and `owner/repo#123` into GitHub links.
+
+    A bare sha goes to the configured default repository. Shas shorter than
+    seven characters, or words that only look hexadecimal ("deadbeef" is
+    rare enough), are the accepted cost of not asking the model for markup.
+    """
+    def commit(match: re.Match[str]) -> str:
+        repo = match.group(1) or DEFAULT_REPO
+        sha = match.group(2)
+        if repo is None or not any(c.isdigit() for c in sha):
+            return match.group(0)
+        label = f"{match.group(1)}@{sha[:9]}" if match.group(1) else sha[:9]
+        return f'<a class="commit" href="https://github.com/{repo}/commit/{sha}">{label}</a>'
+
+    escaped = PR_REF_RE.sub(lambda m: f'<a class="commit" href="https://github.com/{m.group(1)}/pull/{m.group(2)}">{m.group(0)}</a>', escaped)
+    return COMMIT_REF_RE.sub(commit, escaped)
+
+
 def esc_inline(text: str) -> str:
     escaped = esc(text)
     escaped = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", escaped)
     escaped = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r'<a href="\2">\1</a>', escaped)
-    return escaped
+    return link_github(escaped)
 
 
 def markdown(text: str, turns: dict, base: str) -> str:
@@ -326,6 +352,8 @@ def render_session(record: dict[str, Any], ctx: dict[str, Any]) -> str:
 
 
 def main() -> None:
+    global DEFAULT_REPO
+    DEFAULT_REPO = (CONFIG.get("github") or {}).get("default_repo") or None
     summary = read_json(SUMMARY, {"headline": "", "topics": []})
     index = read_json(INDEX, {"sessions": []})
     turns: dict[tuple[str, int], dict[str, Any]] = {}

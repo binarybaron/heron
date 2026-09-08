@@ -46,6 +46,7 @@
       "eigenwallet/exolix-core": "/root/exolix_core_read_only.git_token"
     },
     "days": 21,
-    "limit": 60
+    "limit": 60,
+    "default_repo": "eigenwallet/core-wasm"
   }
 }

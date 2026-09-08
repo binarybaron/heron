@@ -34,7 +34,7 @@ class RenderTest(unittest.TestCase):
                  "milestones": [{"title": "Make the parser test pass", "done": True, "ref": f"{self.sid}#4"}],
                  "body_markdown": f"The agent ran the tests [[{self.sid}#3]] and they passed [[{self.sid}#4]].\n\n- `unittest` output quoted\n"},
                 {"slug": "other", "title": "Other work", "status": "parked", "one_liner": "", "milestones": [],
-                 "body_markdown": "Nothing cited here."},
+                 "body_markdown": "Fixed in eigenwallet/core-wasm@5edabdde4 and 950b9696a, see eigenwallet/core#1198."},
             ],
         })
         sys.argv = ["heron render"]
@@ -57,6 +57,9 @@ class RenderTest(unittest.TestCase):
         links = re.findall(r'href="\.\./(sessions/S[0-9a-f]{8}\.html#t-\d+)"', post_html)
         self.assertIn(f"sessions/{self.sid}.html#t-3", links)
         self.assertIn(f"sessions/{self.sid}.html#t-4", links)
+        other_html = (common.SITE / "posts" / "other.html").read_text()
+        self.assertIn('href="https://github.com/eigenwallet/core-wasm/commit/5edabdde4"', other_html)
+        self.assertIn('href="https://github.com/eigenwallet/core/pull/1198"', other_html)
         page = common.SITE / "sessions" / f"{self.sid}.html"
         self.assertTrue(page.is_file())
         page_html = page.read_text()
