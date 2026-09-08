@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "commits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "subject": {"type": "string", "maxLength": 72},
+          "body": {"type": "string"},
+          "files": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "evidence": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["subject", "body", "files", "evidence"]
+      }
+    },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "file": {"type": "string"},
+          "reason": {"type": "string"}
+        },
+        "required": ["file", "reason"]
+      }
+    }
+  },
+  "required": ["commits", "skipped"]
+}

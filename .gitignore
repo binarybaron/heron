@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+/client/target/
+/target/
+*.log
+/config.json

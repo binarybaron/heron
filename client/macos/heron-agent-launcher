@@ -1,0 +1,7 @@
+#!/bin/sh
+# Entry point of Heron.app. Finder waits for CFBundleExecutable to exit, so the
+# agent is started detached and this script returns at once. Launching twice is
+# harmless: `heron-agent run` exits when another instance holds the lock.
+dir=$(cd "$(dirname "$0")" && pwd)
+mkdir -p "$HOME/Library/Logs"
+nohup "$dir/heron-agent" run >>"$HOME/Library/Logs/heron-agent.log" 2>&1 </dev/null &

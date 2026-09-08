@@ -1,0 +1,51 @@
+{
+  "bind": "127.0.0.1",
+  "port": 8097,
+  "ingest_token": "CHANGE-ME",
+  "site_user": "heron",
+  "site_password": "CHANGE-ME",
+  "state": "/var/lib/heron",
+  "window_hours": 48,
+  "repos": [
+    {
+      "path": "/root/core",
+      "remote": "core-wasm",
+      "branch": "master",
+      "ignore": [
+        "artifacts/",
+        "dev-scripts/visual-swarm/",
+        "moksha/engine/dev/__pycache__/",
+        "monero-sys/monero-depends",
+        "src-gui-shared/src/models/tauriModel.ts"
+      ]
+    }
+  ],
+  "quiet_minutes": 20,
+  "evidence_hours": 48,
+  "github": {
+    "repos": [
+      "eigenwallet/core",
+      "eigenwallet/core-wasm",
+      "eigenwallet/core-private",
+      "eigenwallet/exolix-core"
+    ],
+    "maintainers": [
+      "binarybaron",
+      "Einliterflasche"
+    ],
+    "exclude_branch_prefixes": [
+      "codex/",
+      "claude/"
+    ],
+    "exclude_labels": [
+      "visual-swarm",
+      "captcha-audit",
+      "visual-swarm-blocked"
+    ],
+    "token_files": {
+      "eigenwallet/exolix-core": "/root/exolix_core_read_only.git_token"
+    },
+    "days": 21,
+    "limit": 60
+  }
+}

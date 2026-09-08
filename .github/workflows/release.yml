@@ -1,0 +1,92 @@
+name: release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust toolchain
+        run: |
+          rustup update stable
+          rustup default stable
+          rustup target add ${{ matrix.target }}
+
+      - name: musl tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      # x86_64-apple-darwin binaries only run under Rosetta; the other two run natively.
+      - name: Test
+        if: matrix.target != 'x86_64-apple-darwin'
+        working-directory: client
+        run: cargo test --release --target ${{ matrix.target }}
+
+      - name: Build
+        working-directory: client
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=${{ matrix.target }}
+          bin=client/target/$target/release/heron-agent
+          strip "$bin"
+          mkdir -p dist
+          cp "$bin" "dist/heron-agent-$target"
+          if [ "$RUNNER_OS" = macOS ]; then
+            app=Heron.app
+            mkdir -p "$app/Contents/MacOS"
+            cp "$bin" "$app/Contents/MacOS/heron-agent"
+            cp client/macos/heron-agent-launcher "$app/Contents/MacOS/heron-agent-launcher"
+            chmod +x "$app/Contents/MacOS/"*
+            sed "s/__VERSION__/0.${{ github.run_number }}/g" client/macos/Info.plist > "$app/Contents/Info.plist"
+            plutil -lint "$app/Contents/Info.plist"
+            # ditto keeps the executable bits that a plain zip would lose.
+            ditto -c -k --keepParent "$app" "dist/Heron-$target.app.zip"
+          fi
+          ls -l dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.${{ github.run_number }}
+          name: heron-agent v0.${{ github.run_number }}
+          files: dist/*
+          fail_on_unmatched_files: true

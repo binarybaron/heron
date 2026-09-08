@@ -1,0 +1,15 @@
+# The heron ingest and site server. Installed by install-server.sh, which
+# replaces @REPO@ with the checkout's path. Reads /etc/heron/config.json.
+[Unit]
+Description=heron server (uploads and the site)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=@REPO@
+ExecStart=@REPO@/bin/heron serve
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

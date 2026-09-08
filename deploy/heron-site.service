@@ -1,0 +1,10 @@
+# One run of the site pipeline: collect, prs, summarize, render.
+# Started by heron-site.timer.
+[Unit]
+Description=heron site pipeline
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@REPO@
+ExecStart=@REPO@/bin/heron site

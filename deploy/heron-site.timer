@@ -1,0 +1,10 @@
+[Unit]
+Description=rebuild the heron site every two hours
+
+[Timer]
+OnCalendar=0/2:00:00
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

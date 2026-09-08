@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+"""heron — watches agent sessions and terminals, writes up what is going on.
+
+    heron collect    normalize raw transcripts under $HERON_STATE/raw (and local ones)
+    heron prs        add the maintainers' pull requests
+    heron summarize  ask Claude for the topics
+    heron render     write the static site
+    heron site       collect + prs + summarize + render
+    heron serve      run the ingest + site server
+    heron commit     the commit agent
+
+Shipping a machine's transcripts to the server is heron-agent's job
+(client/), not a subcommand here.
+
+Each subcommand is heron/<name>.py with a main(); `site` is the pipeline.
+"""
+import importlib
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+os.environ.setdefault("IS_SANDBOX", "1")
+
+COMMANDS = {
+    "collect": "heron.collect",
+    "prs": "heron.collect_prs",
+    "summarize": "heron.summarize",
+    "render": "heron.render",
+    "serve": "heron.server",
+    "commit": "heron.commit_agent",
+}
+
+
+def main(argv: list[str]) -> int:
+    if not argv or argv[0] in {"-h", "--help", "help"}:
+        print(__doc__.strip())
+        return 0
+    name, rest = argv[0], argv[1:]
+    if name == "site":
+        for step in ("collect", "prs", "summarize", "render"):
+            code = main([step])
+            if code and step == "collect":
+                return code
+        return 0
+    module = COMMANDS.get(name)
+    if module is None:
+        print(f"heron: unknown command {name!r}", file=sys.stderr)
+        return 2
+    sys.argv = [f"heron {name}", *rest]
+    try:
+        importlib.import_module(module).main()
+    except SystemExit as exit_:
+        return int(exit_.code or 0) if not isinstance(exit_.code, str) else 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

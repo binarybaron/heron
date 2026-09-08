@@ -1,0 +1,10 @@
+[Unit]
+Description=run the heron commit agent hourly
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

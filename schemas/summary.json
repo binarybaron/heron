@@ -1,0 +1,49 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "headline": {
+      "type": "string",
+      "description": "One plain sentence on what the machine is busy with right now."
+    },
+    "topics": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "slug": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,48}$"},
+          "title": {"type": "string"},
+          "status": {"type": "string", "enum": ["active", "blocked", "shipped", "parked"]},
+          "one_liner": {"type": "string"},
+          "body_markdown": {
+            "type": "string",
+            "description": "The post. Cite interactions inline as [[S1a2b3c4#12]]."
+          },
+          "milestones": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 14,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "title": {"type": "string"},
+                "done": {"type": "boolean"},
+                "ref": {
+                  "type": "string",
+                  "description": "The citation that asked for it or shows it done, like S1a2b3c4#12, or empty."
+                }
+              },
+              "required": ["title", "done", "ref"]
+            }
+          }
+        },
+        "required": ["slug", "title", "status", "one_liner", "body_markdown", "milestones"]
+      }
+    }
+  },
+  "required": ["headline", "topics"]
+}
